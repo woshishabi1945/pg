@@ -1,0 +1,138 @@
+<!doctype html>
+
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>捏他互动演示</title>
+  <style>
+    :root{--bg:#0f1724;--card:#0b1220;--accent:#ffd166}
+    html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial}
+    body{display:grid;place-items:center;background:linear-gradient(180deg,#071023 0%, #071b2a 100%);color:#fff}
+    .stage{width:100%;max-width:540px;padding:32px;box-sizing:border-box;text-align:center}
+    .card{background:rgba(255,255,255,0.03);border-radius:18px;padding:28px;box-shadow:0 8px 30px rgba(3,10,18,0.6)}
+    .wrap{width:100%;height:360px;display:flex;align-items:center;justify-content:center;position:relative;}img#pinch{
+  max-width:70%;
+  max-height:82%;
+  height:auto;
+  user-select:none;
+  touch-action:none;
+  cursor:pointer;
+  border-radius:12px;
+  transition:transform 180ms cubic-bezier(.25,1.5,.5,1),filter 200ms;
+  outline:none;
+  -webkit-tap-highlight-color:transparent;
+}
+img#pinch:focus{
+  outline:none;
+}
+
+.hint{margin-top:18px;font-size:14px;opacity:0.8}
+
+@keyframes squish {
+  0%   { transform: translateY(0) scale(1,1); }
+  30%  { transform: translateY(6px) scale(0.75,1.2); }
+  60%  { transform: translateY(-3px) scale(1.08,0.92); }
+  100% { transform: translateY(0) scale(1,1); }
+}
+.pulse{animation:squish 480ms cubic-bezier(.2,1.1,.3,1)}
+
+.controls{display:flex;gap:8px;justify-content:center;margin-top:14px}
+button{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:8px 12px;border-radius:10px;color:#fff;cursor:pointer}
+
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <div class="card">
+      <div class="wrap">
+        <!-- 用户可自己换图片：修改 src 链接即可 -->
+        <img id="pinch" src="your-image.jpg" alt="捏他对象">
+      </div>
+      <div class="hint"><small style="opacity:.7">试试长按</small></div>
+      <div class="controls">
+        <button id="resetBtn">重置位置</button>
+        <button id="demoBtn">点击演示</button>
+      </div>
+    </div>
+  </div>  <script>
+    const img = document.getElementById('pinch');
+    const resetBtn = document.getElementById('resetBtn');
+    const demoBtn = document.getElementById('demoBtn');
+
+    const MAX_SQUISH = 0.5;
+    const MAX_STRETCH = 1.35;
+    const EFFECT_DISTANCE = 200;
+
+    let isPointerDown = false;
+
+    function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
+    function applyTransform(scaleX,scaleY,rotate=0){
+      img.style.transform = `rotate(${rotate}deg) scale(${scaleX},${scaleY})`;
+      img.style.filter = `brightness(${clamp(0.9+(1-scaleX)*0.3,0.8,1.1)}) saturate(${clamp(0.9+(1-scaleX)*0.4,0.8,1.2)})`;
+    }
+    function onPointerDown(e){
+      isPointerDown = true;
+      img.classList.remove('pulse');
+      img.setPointerCapture?.(e.pointerId);
+      navigator.vibrate?.(25);
+      updateFromEvent(e);
+    }
+    function onPointerMove(e){if(!isPointerDown) return;updateFromEvent(e);}
+    function onPointerUp(e){
+      isPointerDown = false;
+      img.releasePointerCapture?.(e.pointerId);
+      img.style.transition = 'transform 480ms cubic-bezier(.25,1.5,.5,1), filter 300ms';
+      applyTransform(1,1,0);
+      setTimeout(()=> img.style.transition = '', 500);
+    }
+    function updateFromEvent(e){
+      const rect = img.getBoundingClientRect();
+      const cx = rect.left + rect.width/2;
+      const cy = rect.top + rect.height/2;
+      const dx = e.clientX - cx;
+      const dy = e.clientY - cy;
+      const dist = Math.hypot(dx, dy);
+      const t = clamp(dist / EFFECT_DISTANCE, 0, 1);
+      const scaleX = 1 - (1 - MAX_SQUISH) * t;
+      const scaleY = 1 + (MAX_STRETCH - 1) * t;
+      const rotate = clamp(dx / rect.width * 20, -20, 20);
+      applyTransform(scaleX, scaleY, rotate);
+    }
+
+    img.addEventListener('click',()=>{
+      img.classList.remove('pulse');void img.offsetWidth;img.classList.add('pulse');
+      navigator.vibrate?.(35);
+    });
+
+    img.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerUp);
+
+    resetBtn.addEventListener('click',()=>{
+      img.style.transition = 'transform 300ms cubic-bezier(.2,.9,.3,1), filter 220ms';
+      applyTransform(1,1,0);
+      setTimeout(()=> img.style.transition = '', 350);
+    });
+    demoBtn.addEventListener('click',()=>{
+      let i=0;const id=setInterval(()=>{
+        img.classList.remove('pulse');void img.offsetWidth;img.classList.add('pulse');
+        navigator.vibrate?.(25);
+        i++;if(i>=6) clearInterval(id);
+      },400);
+    });
+
+    img.addEventListener('contextmenu',e=>e.preventDefault());
+    img.addEventListener('dragover',e=>e.preventDefault());
+    img.addEventListener('drop',e=>{
+      e.preventDefault();
+      const f=e.dataTransfer.files?.[0];
+      if(f && f.type.startsWith('image/')){
+        img.src=URL.createObjectURL(f);
+      }
+    });
+
+    setTimeout(()=>{img.classList.add('pulse');},700);
+  </script></body>
+</html>
